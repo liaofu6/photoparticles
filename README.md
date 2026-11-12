@@ -1,42 +1,49 @@
 # Photo Particles
 
-Minecraft Fabric 模组，给游戏加两种方块：照片方块和视频方块。右键方块打开游戏内的文件浏览器，选一张图或一个 GIF，它会在方块上方显示成一张背光的平面图。
+**English** | [简体中文](README.zh-CN.md)
 
-图片走的是方块实体的动态贴图渲染，不是粒子拼的，所以边缘是干净的，也不会一行行扫。
+A Minecraft Fabric mod that adds two blocks: the Photo Block and the Video Block. Right-click a block to open an in-game file browser, pick an image or a GIF, and it is displayed as a backlit picture above the block.
 
-## 两个方块
+The picture is drawn as a dynamic texture on a block entity instead of being assembled from particles, so edges stay clean and there is no line-by-line sweep.
 
-**照片方块**：右键选图片，支持 png、jpg、jpeg、bmp、gif。解析时按最长边缩放到最多 256 像素，画面上每格对应 96 像素，缩放用最近邻，保持像素锐利。
+## The two blocks
 
-**视频方块**：右键选 GIF，循环播放。按最长边缩放到最多 160 像素，最多读 100 帧，每 2 游戏刻换一帧。
+**Photo Block**: right-click to pick an image. Supports png, jpg, jpeg, bmp and gif. The image is downscaled so its longest side is at most 256 pixels, and it is drawn at 96 pixels per block with nearest-neighbour sampling to keep pixels sharp.
 
-两个方块都是自发光渲染，暗处、夜里、地下都不会变暗。显示时的朝向由你放置时面对的方向决定。
+**Video Block**: right-click to pick a GIF and loop it. It is scaled so its longest side is at most 160 pixels, up to 100 frames are read, and the frame advances every 2 game ticks.
 
-## 版本要求
+Both blocks render emissive, so they never get darker at night, underground or in dim rooms. The picture faces the direction you were facing when you placed the block.
+
+## Requirements
 
 - Minecraft 26.2
-- Fabric Loader 0.19.5 及以上
+
+- Fabric Loader 0.19.5 or newer
+
 - Fabric API
+
 - Java 25
 
-## 安装
+## Installation
 
-把构建产物 `build/libs/photoparticles-0.1.0.jar` 放进 `.minecraft/mods` 就行，Fabric API 也要在里面。
+Drop `build/libs/photoparticles-0.1.0.jar` into `.minecraft/mods`. Fabric API must be there as well.
 
-## 自己构建
+## Building
 
 ```
 gradlew build
 ```
 
-Windows 下需要 JDK 25。产物不带 remap，直接丢进 Fabric 就能跑。
+Requires JDK 25 on Windows. The output is not remapped, so it can be dropped straight into a Fabric installation.
 
-## 已知限制
+## Known limitations
 
-- 视频只支持 GIF。MP4 需要外部 ffmpeg 转码，暂不支持。
-- 视频方块存的是 GIF 的本地文件路径，读取在客户端完成。单机、自己开服自己看没问题，多人服务器上其他玩家没有这个文件就看不到画面。
-- 照片的像素数据存在方块实体里并随存档保存，一张图最多 256×256，放太多会占存档体积。
+- Only GIF is supported for video. MP4 would need external ffmpeg transcoding, which is not implemented.
 
-## 许可
+- The Video Block stores the local path of the GIF and reads it on the client. This works in single player and on a server you host for yourself; on a multiplayer server other players do not have that file and will see nothing.
 
-MIT，见 [LICENSE](LICENSE)。
+- Photo pixels are stored in the block entity and saved with the world. One image is at most 256×256, and many of them will increase save size.
+
+## License
+
+MIT, see [LICENSE](LICENSE).
