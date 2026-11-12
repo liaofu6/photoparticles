@@ -3,11 +3,17 @@
   "id": "photoparticles",
   "version": "${version}",
   "name": "Photo Particles",
-  "description": "添加照片方块：上传图片后，方块上方会用粒子还原出这张照片。",
+  "description": "照片方块与视频方块：在方块上方高清显示你上传的图片或循环播放 GIF。",
   "authors": [
-    "Trae"
+    "liaofu6"
   ],
+  "contact": {
+    "homepage": "https://github.com/liaofu6/photoparticles",
+    "sources": "https://github.com/liaofu6/photoparticles",
+    "issues": "https://github.com/liaofu6/photoparticles/issues"
+  },
   "license": "MIT",
+  "icon": "assets/photoparticles/icon.png",
   "environment": "*",
   "entrypoints": {
     "main": [
