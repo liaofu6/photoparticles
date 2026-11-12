@@ -1,0 +1,7 @@
+{
+  "variants": {
+    "": {
+      "model": "photoparticles:block/video_block"
+    }
+  }
+}

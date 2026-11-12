@@ -1,0 +1,6 @@
+{
+  "model": {
+    "type": "minecraft:model",
+    "model": "photoparticles:block/photo_block"
+  }
+}

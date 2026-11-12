@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "id": "photoparticles",
+  "version": "${version}",
+  "name": "Photo Particles",
+  "description": "添加照片方块：上传图片后，方块上方会用粒子还原出这张照片。",
+  "authors": [
+    "Trae"
+  ],
+  "license": "MIT",
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "com.photoparticles.PhotoParticlesMod"
+    ],
+    "client": [
+      "com.photoparticles.client.PhotoParticlesClient"
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=0.19.5",
+    "minecraft": "~26.2",
+    "java": ">=25",
+    "fabric-api": "*"
+  }
+}
