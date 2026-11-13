@@ -198,6 +198,8 @@ public class VideoBlockRenderer implements BlockEntityRenderer<VideoBlockEntity,
         if (frames.isEmpty()) {
             return null;
         }
+        com.photoparticles.PhotoParticlesMod.LOGGER.info("video decoded: {}x{}, {} frames, {} bytes",
+                width, height, frames.size(), data.length);
         return new Frames(frames, width, height);
     }
 

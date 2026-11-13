@@ -51,11 +51,8 @@ public class VideoBlockEntity extends BlockEntity {
      */
     @Override
     public CompoundTag getUpdateTag(HolderLookup.Provider registries) {
-        CompoundTag tag = new CompoundTag();
-        tag.putString("Source", source);
-        tag.putInt("Facing", facing);
-        tag.putInt("DataVersion", dataVersion);
-        tag.putInt("DataLength", data.length);
+        CompoundTag tag = saveCustomOnly(registries);
+        tag.remove("Data");
         return tag;
     }
 

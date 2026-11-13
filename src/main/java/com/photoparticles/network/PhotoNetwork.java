@@ -12,6 +12,8 @@ public final class PhotoNetwork {
     private static final int MAX_PAYLOAD_BYTES = 1 << 21;
     private static final int MAX_VIDEO_BYTES = 12 << 20;
     private static final double MAX_DISTANCE_SQR = 64.0D;
+    /** 视频方块可能离玩家很远，索要数据时放宽到 128 格。 */
+    private static final double MAX_REQUEST_DISTANCE_SQR = 128.0D * 128.0D;
 
     private PhotoNetwork() {
     }
@@ -46,7 +48,7 @@ public final class PhotoNetwork {
         if (player.distanceToSqr(
                 payload.pos().getX() + 0.5D,
                 payload.pos().getY() + 0.5D,
-                payload.pos().getZ() + 0.5D) > MAX_DISTANCE_SQR) {
+                payload.pos().getZ() + 0.5D) > MAX_REQUEST_DISTANCE_SQR) {
             return;
         }
         BlockEntity blockEntity = player.level().getBlockEntity(payload.pos());
