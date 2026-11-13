@@ -23,7 +23,7 @@ Minecraft Fabric 模组，给游戏加两种方块：照片方块和视频方块
 
 ## 安装
 
-把构建产物 `build/libs/photoparticles-0.1.0.jar` 放进 `.minecraft/mods` 就行，Fabric API 也要在里面。
+把构建产物 `build/libs/photoparticles-0.2.0.jar` 放进 `.minecraft/mods` 就行，Fabric API 也要在里面。
 
 ## 自己构建
 

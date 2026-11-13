@@ -26,7 +26,7 @@ Both blocks render emissive, so they never get darker at night, underground or i
 
 ## Installation
 
-Drop `build/libs/photoparticles-0.1.0.jar` into `.minecraft/mods`. Fabric API must be there as well.
+Drop `build/libs/photoparticles-0.2.0.jar` into `.minecraft/mods`. Fabric API must be there as well.
 
 ## Building
 
