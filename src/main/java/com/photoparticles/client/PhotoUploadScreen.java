@@ -1,10 +1,10 @@
 package com.photoparticles.client;
 
+import com.photoparticles.client.render.PhotoBlockRenderer;
 import com.photoparticles.network.UploadPhotoPayload;
 import com.photoparticles.network.VideoSourcePayload;
 import java.awt.image.BufferedImage;
 import java.io.File;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -271,10 +271,14 @@ public class PhotoUploadScreen extends Screen {
     }
 
     private void loadImage(File file) {
+        if (!PhotoBlockRenderer.imageSupportAvailable()) {
+            this.status = Component.literal("当前运行环境缺少图片解码能力，只能显示方块模型");
+            return;
+        }
         BufferedImage source;
         try {
             source = ImageIO.read(file);
-        } catch (IOException | RuntimeException e) {
+        } catch (Throwable e) {
             this.status = Component.literal("图片读取失败");
             return;
         }

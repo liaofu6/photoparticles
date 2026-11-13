@@ -32,8 +32,8 @@ import net.minecraft.util.LightCoordsUtil;
  * 视频方块：读取本地 GIF 的全部帧，按固定帧率循环播放。
  */
 public class VideoBlockRenderer implements BlockEntityRenderer<VideoBlockEntity, VideoBlockRenderer.State> {
-    private static final int MAX_SIDE = 96;
-    private static final int MAX_FRAMES = 120;
+    private static final int MAX_SIDE = 160;
+    private static final int MAX_FRAMES = 100;
     private static final int TICKS_PER_FRAME = 2;
     private static final Map<BlockPos, VideoTexture> CACHE = new HashMap<>();
 
@@ -54,6 +54,9 @@ public class VideoBlockRenderer implements BlockEntityRenderer<VideoBlockEntity,
     @Override
     public void submit(State state, PoseStack poseStack, SubmitNodeCollector collector, CameraRenderState cameraState) {
         if (state.source.isEmpty()) {
+            return;
+        }
+        if (!PhotoBlockRenderer.imageSupportAvailable()) {
             return;
         }
         VideoTexture video = CACHE.get(state.pos);
@@ -146,7 +149,7 @@ public class VideoBlockRenderer implements BlockEntityRenderer<VideoBlockEntity,
                 frames.add(resize(frame, width, height));
             }
             reader.dispose();
-        } catch (Exception e) {
+        } catch (Throwable e) {
             return null;
         }
         if (frames.isEmpty()) {

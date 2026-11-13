@@ -2,6 +2,7 @@ package com.photoparticles.client.render;
 
 import com.mojang.blaze3d.platform.NativeImage;
 import com.mojang.blaze3d.vertex.PoseStack;
+import com.photoparticles.PhotoParticlesMod;
 import com.photoparticles.block.PhotoBlockEntity;
 import java.util.HashMap;
 import java.util.Map;
@@ -24,7 +25,27 @@ import net.minecraft.util.LightCoordsUtil;
  * 用一张动态纹理四边形渲染照片，纹理与像素一一对应，边缘不会被粒子柔化。
  */
 public class PhotoBlockRenderer implements BlockEntityRenderer<PhotoBlockEntity, PhotoBlockRenderer.State> {
-    public static final float PIXEL_SIZE = 1.0F / 48.0F;
+    public static final float PIXEL_SIZE = 1.0F / 96.0F;
+
+    private static Boolean imageSupport;
+
+    /**
+     * 部分运行环境（例如安卓启动器）缺少 java.desktop，ImageIO 不可用。
+     * 这时只保留方块模型，不绘制照片平面，避免渲染线程抛错。
+     */
+    public static boolean imageSupportAvailable() {
+        if (imageSupport == null) {
+            try {
+                Class.forName("javax.imageio.ImageIO");
+                Class.forName("java.awt.image.BufferedImage");
+                imageSupport = Boolean.TRUE;
+            } catch (Throwable t) {
+                imageSupport = Boolean.FALSE;
+                PhotoParticlesMod.LOGGER.warn("Image decoding is unavailable in this runtime, photo blocks will render as plain blocks");
+            }
+        }
+        return imageSupport;
+    }
 
     private static final Map<BlockPos, TextureEntry> TEXTURES = new HashMap<>();
 
@@ -47,6 +68,9 @@ public class PhotoBlockRenderer implements BlockEntityRenderer<PhotoBlockEntity,
     @Override
     public void submit(State state, PoseStack poseStack, SubmitNodeCollector collector, CameraRenderState cameraState) {
         if (state.width <= 0 || state.height <= 0 || state.pixels.length != state.width * state.height) {
+            return;
+        }
+        if (!imageSupportAvailable()) {
             return;
         }
         Identifier texture = textureFor(state.pos, state.width, state.height, state.pixels);
