@@ -8,9 +8,9 @@ The picture is drawn as a dynamic texture on a block entity instead of being ass
 
 ## The two blocks
 
-**Photo Block**: right-click to pick an image. Supports png, jpg, jpeg, bmp and gif. The image is downscaled so its longest side is at most 256 pixels, and it is drawn at 96 pixels per block with nearest-neighbour sampling to keep pixels sharp.
+**Photo Block**: right-click to pick an image. Supports png, jpg, jpeg, bmp and gif. The image is downscaled so its longest side is at most 384 pixels, and it is drawn at 144 pixels per block with nearest-neighbour sampling to keep pixels sharp.
 
-**Video Block**: right-click to pick a GIF and loop it. It is scaled so its longest side is at most 160 pixels, up to 100 frames are read, and the frame advances every 2 game ticks.
+**Video Block**: right-click to pick a GIF or an MP4 and loop it. The file is parsed on the client into up to 40 frames at 192 px on the longest side, then uploaded to the server and stored in the block, so every player on the map can see it playing. Parsing runs on a background thread with a progress readout, and the block screen can be closed while it works.
 
 Both blocks render emissive, so they never get darker at night, underground or in dim rooms. The picture faces the direction you were facing when you placed the block.
 
@@ -26,7 +26,7 @@ Both blocks render emissive, so they never get darker at night, underground or i
 
 ## Installation
 
-Drop `build/libs/photoparticles-0.2.0.jar` into `.minecraft/mods`. Fabric API must be there as well.
+Drop `build/libs/photoparticles-0.3.0.jar` into `.minecraft/mods`. Fabric API must be there as well.
 
 ## Building
 
@@ -38,9 +38,8 @@ Requires JDK 25 on Windows. The output is not remapped, so it can be dropped str
 
 ## Known limitations
 
-- Only GIF is supported for video. MP4 would need external ffmpeg transcoding, which is not implemented.
-
-- A GIF must be 1 MB or smaller, since it is uploaded to the server and saved with the world.
+- Video supports GIF and MP4 only. MP4 decoding is pure Java (JCodec bundled), so it handles H.264; other codecs are not supported.
+- Parsed video data must be 8 MB or smaller, since it is uploaded to the server and saved with the world. Longer or larger clips are sampled down to 40 frames first.
 
 - Photo pixels are stored in the block entity and saved with the world. One image is at most 384×384, and many of them will increase save size.
 

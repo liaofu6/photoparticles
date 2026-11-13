@@ -132,7 +132,7 @@ public class VideoBlockRenderer implements BlockEntityRenderer<VideoBlockEntity,
 
     /** 本机有这个 GIF 文件时直接读，省掉一次等待（上传者自己就能立刻看到）。 */
     private static void requestLocalLoad(BlockPos pos, String path) {
-        if (path.isEmpty() || !LOADING.add(pos)) {
+        if (path.isEmpty() || path.toLowerCase(java.util.Locale.ROOT).endsWith(".mp4") || !LOADING.add(pos)) {
             return;
         }
         File file = new File(path);

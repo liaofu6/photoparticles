@@ -173,6 +173,16 @@ public class PhotoUploadScreen extends Screen {
         graphics.centeredText(this.font, this.status, this.previewX + this.previewSize / 2,
                 Math.min(statusY, this.contentBottom - 10), 0xFFD0D0D0);
 
+        com.photoparticles.client.video.VideoJobs.Job job = com.photoparticles.client.video.VideoJobs.active();
+        if (job != null) {
+            int barWidth = this.previewSize;
+            int barY = this.contentBottom - 24;
+            graphics.fill(this.previewX, barY, this.previewX + barWidth, barY + 6, 0xFF2A2A2A);
+            graphics.fill(this.previewX, barY,
+                    this.previewX + (int) (barWidth * job.progress()), barY + 6, 0xFF5FBF6A);
+            graphics.centeredText(this.font, job.text(), this.previewX + barWidth / 2, barY - 10, 0xFFE0E0E0);
+        }
+
         super.extractRenderState(graphics, mouseX, mouseY, partialTick);
     }
 
@@ -202,7 +212,13 @@ public class PhotoUploadScreen extends Screen {
             this.refresh();
         } else {
             this.selectedFile = row.file;
-            this.loadImage(row.file);
+            if (this.video && com.photoparticles.client.video.VideoTranscoder.isVideoFile(row.file)) {
+                this.pixels = null;
+                this.previewPixels = null;
+                this.status = Component.literal("视频文件，点“发送到方块”后在后台解析");
+            } else {
+                this.loadImage(row.file);
+            }
         }
         return true;
     }
@@ -381,23 +397,11 @@ public class PhotoUploadScreen extends Screen {
     private void send() {
         if (this.video) {
             if (this.selectedFile == null) {
-                this.status = Component.literal("请先在左侧选择 GIF 文件");
+                this.status = Component.literal("请先在左侧选择 GIF 或 MP4 文件");
                 return;
             }
-            byte[] data;
-            try {
-                data = java.nio.file.Files.readAllBytes(this.selectedFile.toPath());
-            } catch (Throwable e) {
-                this.status = Component.literal("GIF 读取失败");
-                return;
-            }
-            if (data.length > VideoSourcePayload.MAX_DATA) {
-                this.status = Component.literal("GIF 超过 " + (VideoSourcePayload.MAX_DATA / (1024 * 1024)) + " MB，换个小一点的");
-                return;
-            }
-            ClientPlayNetworking.send(new VideoSourcePayload(this.pos, this.selectedFile.getAbsolutePath(), data));
-            PhotoParticlesClient.notifyPlayer(
-                    "已上传视频 " + String.format("%.2f", data.length / 1048576.0D) + " MB");
+            // 统一交给后台任务解析：GIF 也转换成分帧数据，上传者可以直接关掉界面
+            com.photoparticles.client.video.VideoJobs.start(this.pos, this.selectedFile);
             this.onClose();
             return;
         }

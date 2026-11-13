@@ -3,9 +3,12 @@ package com.photoparticles.client;
 import com.photoparticles.block.PhotoBlockEntities;
 import com.photoparticles.client.render.PhotoBlockRenderer;
 import com.photoparticles.client.render.VideoBlockRenderer;
+import com.photoparticles.client.video.VideoJobs;
+import com.photoparticles.client.video.VideoTranscoder;
 import com.photoparticles.network.VideoDataPayload;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.blockentity.BlockEntityRenderers;
 import net.minecraft.core.BlockPos;
@@ -39,8 +42,12 @@ public class PhotoParticlesClient implements ClientModInitializer {
         BlockEntityRenderers.register(PhotoBlockEntities.VIDEO_BLOCK_ENTITY, context -> new VideoBlockRenderer());
 
         ClientPlayNetworking.registerGlobalReceiver(VideoDataPayload.TYPE, (payload, context) ->
-                context.client().execute(() ->
-                        VideoDataCache.put(payload.pos(), payload.version(), payload.data())));
+                context.client().execute(() -> {
+                    VideoDataCache.put(payload.pos(), payload.version(), payload.data());
+                    notifyPlayer("收到视频数据 " + String.format("%.2f", payload.data().length / 1048576.0D) + " MB");
+                }));
+
+        ClientTickEvents.END_CLIENT_TICK.register(client -> VideoJobs.tick());
     }
 
     public static void openUploadScreen(BlockPos pos) {
