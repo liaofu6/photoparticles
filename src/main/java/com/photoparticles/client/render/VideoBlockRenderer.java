@@ -32,8 +32,8 @@ import net.minecraft.util.LightCoordsUtil;
  * 视频方块：读取本地 GIF 的全部帧，按固定帧率循环播放。
  */
 public class VideoBlockRenderer implements BlockEntityRenderer<VideoBlockEntity, VideoBlockRenderer.State> {
-    private static final int MAX_SIDE = 160;
-    private static final int MAX_FRAMES = 100;
+    private static final int MAX_SIDE = 224;
+    private static final int MAX_FRAMES = 60;
     private static final int TICKS_PER_FRAME = 2;
     private static final Map<BlockPos, VideoTexture> CACHE = new HashMap<>();
 
@@ -48,6 +48,7 @@ public class VideoBlockRenderer implements BlockEntityRenderer<VideoBlockEntity,
         BlockEntityRenderState.extractBase(blockEntity, state, overlay);
         state.pos = blockEntity.getBlockPos();
         state.source = blockEntity.getSource();
+        state.data = blockEntity.getData();
         state.facing = blockEntity.getFacing();
     }
 
@@ -60,8 +61,8 @@ public class VideoBlockRenderer implements BlockEntityRenderer<VideoBlockEntity,
             return;
         }
         VideoTexture video = CACHE.get(state.pos);
-        if (video == null || !video.source.equals(state.source)) {
-            video = load(state.pos, state.source);
+        if (video == null || !video.source.equals(state.source) || video.data != state.data) {
+            video = load(state.pos, state.source, state.data);
             if (video == null) {
                 return;
             }
@@ -121,34 +122,40 @@ public class VideoBlockRenderer implements BlockEntityRenderer<VideoBlockEntity,
         });
     }
 
-    private static VideoTexture load(BlockPos pos, String path) {
+    private static VideoTexture load(BlockPos pos, String path, byte[] data) {
         List<int[]> frames = new ArrayList<>();
         int width = 0;
         int height = 0;
-        try (ImageInputStream stream = ImageIO.createImageInputStream(new File(path))) {
-            if (stream == null) {
+        ImageInputStream input = null;
+        try {
+            input = data.length > 0
+                    ? ImageIO.createImageInputStream(new java.io.ByteArrayInputStream(data))
+                    : ImageIO.createImageInputStream(new File(path));
+            if (input == null) {
                 return null;
             }
-            Iterator<ImageReader> readers = ImageIO.getImageReadersByFormatName("gif");
-            if (!readers.hasNext()) {
-                return null;
-            }
-            ImageReader reader = readers.next();
-            reader.setInput(stream, false, false);
-            int count = Math.min(reader.getNumImages(true), MAX_FRAMES);
-            for (int i = 0; i < count; i++) {
-                BufferedImage frame = reader.read(i);
-                if (frame == null) {
-                    continue;
+            try (ImageInputStream stream = input) {
+                Iterator<ImageReader> readers = ImageIO.getImageReadersByFormatName("gif");
+                if (!readers.hasNext()) {
+                    return null;
                 }
-                if (width == 0) {
-                    double scale = Math.min(1.0D, (double) MAX_SIDE / Math.max(frame.getWidth(), frame.getHeight()));
-                    width = Math.max(1, (int) Math.round(frame.getWidth() * scale));
-                    height = Math.max(1, (int) Math.round(frame.getHeight() * scale));
+                ImageReader reader = readers.next();
+                reader.setInput(stream, false, false);
+                int count = Math.min(reader.getNumImages(true), MAX_FRAMES);
+                for (int i = 0; i < count; i++) {
+                    BufferedImage frame = reader.read(i);
+                    if (frame == null) {
+                        continue;
+                    }
+                    if (width == 0) {
+                        double scale = Math.min(1.0D, (double) MAX_SIDE / Math.max(frame.getWidth(), frame.getHeight()));
+                        width = Math.max(1, (int) Math.round(frame.getWidth() * scale));
+                        height = Math.max(1, (int) Math.round(frame.getHeight() * scale));
+                    }
+                    frames.add(resize(frame, width, height));
                 }
-                frames.add(resize(frame, width, height));
+                reader.dispose();
             }
-            reader.dispose();
         } catch (Throwable e) {
             return null;
         }
@@ -160,25 +167,52 @@ public class VideoBlockRenderer implements BlockEntityRenderer<VideoBlockEntity,
         NativeImage image = new NativeImage(width, height, true);
         DynamicTexture texture = new DynamicTexture(() -> "photoparticles video", image);
         Minecraft.getInstance().getTextureManager().register(id, texture);
-        return new VideoTexture(path, id, image, texture, frames, width, height);
+        return new VideoTexture(path, data, id, image, texture, frames, width, height);
     }
 
     private static int[] resize(BufferedImage source, int width, int height) {
         int[] pixels = new int[width * height];
         int sourceWidth = source.getWidth();
         int sourceHeight = source.getHeight();
+        int[] row = new int[sourceWidth];
         for (int y = 0; y < height; y++) {
-            int sourceY = Math.min(sourceHeight - 1, y * sourceHeight / height);
+            int y0 = (int) ((long) y * sourceHeight / height);
+            int y1 = Math.max(y0 + 1, (int) ((long) (y + 1) * sourceHeight / height));
             for (int x = 0; x < width; x++) {
-                int sourceX = Math.min(sourceWidth - 1, x * sourceWidth / width);
-                pixels[y * width + x] = source.getRGB(sourceX, sourceY);
+                int x0 = (int) ((long) x * sourceWidth / width);
+                int x1 = Math.max(x0 + 1, (int) ((long) (x + 1) * sourceWidth / width));
+                pixels[y * width + x] = average(source, x0, y0, x1, y1, row);
             }
         }
         return pixels;
     }
 
+    private static int average(BufferedImage source, int x0, int y0, int x1, int y1, int[] row) {
+        long r = 0;
+        long g = 0;
+        long b = 0;
+        long a = 0;
+        int count = 0;
+        for (int y = y0; y < y1; y++) {
+            source.getRGB(x0, y, x1 - x0, 1, row, 0, source.getWidth());
+            for (int i = 0; i < x1 - x0; i++) {
+                int value = row[i];
+                a += (value >>> 24) & 0xFF;
+                r += (value >>> 16) & 0xFF;
+                g += (value >>> 8) & 0xFF;
+                b += value & 0xFF;
+                count++;
+            }
+        }
+        if (count == 0) {
+            return 0;
+        }
+        return (int) (a / count) << 24 | (int) (r / count) << 16 | (int) (g / count) << 8 | (int) (b / count);
+    }
+
     private static final class VideoTexture {
         final String source;
+        final byte[] data;
         final Identifier id;
         final NativeImage image;
         final DynamicTexture texture;
@@ -187,9 +221,10 @@ public class VideoBlockRenderer implements BlockEntityRenderer<VideoBlockEntity,
         final int height;
         int lastFrame = -1;
 
-        VideoTexture(String source, Identifier id, NativeImage image, DynamicTexture texture,
+        VideoTexture(String source, byte[] data, Identifier id, NativeImage image, DynamicTexture texture,
                      List<int[]> frames, int width, int height) {
             this.source = source;
+            this.data = data;
             this.id = id;
             this.image = image;
             this.texture = texture;
@@ -202,6 +237,7 @@ public class VideoBlockRenderer implements BlockEntityRenderer<VideoBlockEntity,
     public static class State extends BlockEntityRenderState {
         public BlockPos pos = BlockPos.ZERO;
         public String source = "";
+        public byte[] data = new byte[0];
         public Direction facing = Direction.SOUTH;
     }
 }

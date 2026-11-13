@@ -13,7 +13,7 @@ import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
 
 public class PhotoBlockEntity extends BlockEntity {
-    public static final int MAX_SIDE = 256;
+    public static final int MAX_SIDE = 384;
     private static final int[] EMPTY = new int[0];
 
     private int width;

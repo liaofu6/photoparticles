@@ -18,7 +18,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 
 public class PhotoUploadScreen extends Screen {
-    private static final int MAX_SIDE = 256;
+    private static final int MAX_SIDE = 384;
     private static final int MAX_PREVIEW = 220;
     private static final int ROW_HEIGHT = 12;
     private static final int MAX_ENTRIES = 200;
@@ -292,11 +292,14 @@ public class PhotoUploadScreen extends Screen {
         int newWidth = Math.max(1, (int) Math.round(srcWidth * scale));
         int newHeight = Math.max(1, (int) Math.round(srcHeight * scale));
         int[] result = new int[newWidth * newHeight];
+        int[] row = new int[srcWidth];
         for (int y = 0; y < newHeight; y++) {
-            int srcY = Math.min(srcHeight - 1, y * srcHeight / newHeight);
+            int y0 = (int) ((long) y * srcHeight / newHeight);
+            int y1 = Math.max(y0 + 1, (int) ((long) (y + 1) * srcHeight / newHeight));
             for (int x = 0; x < newWidth; x++) {
-                int srcX = Math.min(srcWidth - 1, x * srcWidth / newWidth);
-                result[y * newWidth + x] = source.getRGB(srcX, srcY);
+                int x0 = (int) ((long) x * srcWidth / newWidth);
+                int x1 = Math.max(x0 + 1, (int) ((long) (x + 1) * srcWidth / newWidth));
+                result[y * newWidth + x] = average(source, x0, y0, x1, y1, row);
             }
         }
         this.imageWidth = newWidth;
@@ -305,13 +308,48 @@ public class PhotoUploadScreen extends Screen {
         this.status = Component.literal("已解析 " + newWidth + " x " + newHeight + " 像素");
     }
 
+    /** 缩小图片时取区域平均，比直接抽样更干净，放大后不容易出现噪点。 */
+    private static int average(BufferedImage source, int x0, int y0, int x1, int y1, int[] row) {
+        long r = 0;
+        long g = 0;
+        long b = 0;
+        long a = 0;
+        int count = 0;
+        for (int y = y0; y < y1; y++) {
+            source.getRGB(x0, y, x1 - x0, 1, row, 0, source.getWidth());
+            for (int i = 0; i < x1 - x0; i++) {
+                int value = row[i];
+                a += (value >>> 24) & 0xFF;
+                r += (value >>> 16) & 0xFF;
+                g += (value >>> 8) & 0xFF;
+                b += value & 0xFF;
+                count++;
+            }
+        }
+        if (count == 0) {
+            return 0;
+        }
+        return (int) (a / count) << 24 | (int) (r / count) << 16 | (int) (g / count) << 8 | (int) (b / count);
+    }
+
     private void send() {
         if (this.video) {
             if (this.selectedFile == null) {
                 this.status = Component.literal("请先在左侧选择 GIF 文件");
                 return;
             }
-            ClientPlayNetworking.send(new VideoSourcePayload(this.pos, this.selectedFile.getAbsolutePath()));
+            byte[] data;
+            try {
+                data = java.nio.file.Files.readAllBytes(this.selectedFile.toPath());
+            } catch (Throwable e) {
+                this.status = Component.literal("GIF 读取失败");
+                return;
+            }
+            if (data.length > VideoSourcePayload.MAX_DATA) {
+                this.status = Component.literal("GIF 超过 1 MB，换个小一点的");
+                return;
+            }
+            ClientPlayNetworking.send(new VideoSourcePayload(this.pos, this.selectedFile.getAbsolutePath(), data));
             this.onClose();
             return;
         }

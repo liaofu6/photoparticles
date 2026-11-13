@@ -14,8 +14,11 @@ import net.minecraft.world.level.storage.ValueOutput;
 
 public class VideoBlockEntity extends BlockEntity {
     private static final int MAX_PATH_LENGTH = 512;
+    private static final int[] EMPTY_INTS = new int[0];
+    private static final byte[] EMPTY_DATA = new byte[0];
 
     private String source = "";
+    private byte[] data = EMPTY_DATA;
     private int facing = Direction.SOUTH.get2DDataValue();
 
     public VideoBlockEntity(BlockPos pos, BlockState state) {
@@ -27,6 +30,8 @@ public class VideoBlockEntity extends BlockEntity {
         super.saveAdditional(output);
         output.putString("Source", source);
         output.putInt("Facing", facing);
+        output.putInt("DataLength", data.length);
+        output.putIntArray("Data", pack(data));
     }
 
     @Override
@@ -34,6 +39,7 @@ public class VideoBlockEntity extends BlockEntity {
         super.loadAdditional(input);
         source = input.getStringOr("Source", "");
         facing = input.getIntOr("Facing", Direction.SOUTH.get2DDataValue()) & 3;
+        data = unpack(input.getIntArray("Data").orElse(EMPTY_INTS), input.getIntOr("DataLength", 0));
     }
 
     @Override
@@ -50,19 +56,44 @@ public class VideoBlockEntity extends BlockEntity {
         return source;
     }
 
+    /** GIF 原始字节，存在方块实体里，这样别的玩家也能播。 */
+    public byte[] getData() {
+        return data;
+    }
+
     public Direction getFacing() {
         return Direction.from2DDataValue(facing & 3);
     }
 
-    public void setSource(String path, Direction direction) {
+    public void setSource(String path, Direction direction, byte[] gifData) {
         if (path == null) {
             path = "";
         }
         this.source = path.length() > MAX_PATH_LENGTH ? path.substring(0, MAX_PATH_LENGTH) : path;
+        this.data = gifData == null ? EMPTY_DATA : gifData.clone();
         this.facing = direction.get2DDataValue();
         setChanged();
         if (level != null && !level.isClientSide()) {
             level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), 3);
         }
+    }
+
+    private static int[] pack(byte[] bytes) {
+        int[] ints = new int[(bytes.length + 3) / 4];
+        for (int i = 0; i < bytes.length; i++) {
+            ints[i >> 2] |= (bytes[i] & 0xFF) << ((i & 3) * 8);
+        }
+        return ints;
+    }
+
+    private static byte[] unpack(int[] ints, int length) {
+        if (length <= 0 || length > ints.length * 4) {
+            return EMPTY_DATA;
+        }
+        byte[] bytes = new byte[length];
+        for (int i = 0; i < length; i++) {
+            bytes[i] = (byte) (ints[i >> 2] >>> ((i & 3) * 8));
+        }
+        return bytes;
     }
 }

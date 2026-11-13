@@ -40,9 +40,10 @@ Requires JDK 25 on Windows. The output is not remapped, so it can be dropped str
 
 - Only GIF is supported for video. MP4 would need external ffmpeg transcoding, which is not implemented.
 
-- The Video Block stores the local path of the GIF and reads it on the client. This works in single player and on a server you host for yourself; on a multiplayer server other players do not have that file and will see nothing.
+- A GIF must be 1 MB or smaller, since it is uploaded to the server and saved with the world.
 
-- Photo pixels are stored in the block entity and saved with the world. One image is at most 256×256, and many of them will increase save size.
+- Photo pixels are stored in the block entity and saved with the world. One image is at most 384×384, and many of them will increase save size.
+
 - Runtimes without `java.desktop` (some Android launchers such as FCL) cannot decode images. The mod detects this and falls back to the plain block model instead of crashing, but no picture is shown.
 
 ## License

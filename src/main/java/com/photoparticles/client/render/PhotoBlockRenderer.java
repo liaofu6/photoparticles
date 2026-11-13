@@ -25,7 +25,7 @@ import net.minecraft.util.LightCoordsUtil;
  * 用一张动态纹理四边形渲染照片，纹理与像素一一对应，边缘不会被粒子柔化。
  */
 public class PhotoBlockRenderer implements BlockEntityRenderer<PhotoBlockEntity, PhotoBlockRenderer.State> {
-    public static final float PIXEL_SIZE = 1.0F / 96.0F;
+    public static final float PIXEL_SIZE = 1.0F / 144.0F;
 
     private static Boolean imageSupport;
 

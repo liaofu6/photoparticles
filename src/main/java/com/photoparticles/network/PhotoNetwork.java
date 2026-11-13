@@ -41,8 +41,12 @@ public final class PhotoNetwork {
         }
         BlockEntity blockEntity = player.level().getBlockEntity(payload.pos());
         if (blockEntity instanceof com.photoparticles.block.VideoBlockEntity video) {
+            byte[] data = payload.data();
+            if (data == null || data.length > VideoSourcePayload.MAX_DATA) {
+                return;
+            }
             Direction facing = Direction.fromYRot(player.getYRot()).getOpposite();
-            video.setSource(payload.path(), facing);
+            video.setSource(payload.path(), facing, data);
         }
     }
 
