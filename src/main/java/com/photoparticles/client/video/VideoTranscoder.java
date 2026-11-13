@@ -79,15 +79,18 @@ public final class VideoTranscoder {
         int height = 0;
         try (ImageInputStream stream = ImageIO.createImageInputStream(file)) {
             if (stream == null) {
-                return new Frames(frames, 0, 0);
+                throw new IllegalStateException("文件读不出来");
             }
-            Iterator<ImageReader> readers = ImageIO.getImageReadersByFormatName("gif");
+            Iterator<ImageReader> readers = ImageIO.getImageReaders(stream);
             if (!readers.hasNext()) {
-                return new Frames(frames, 0, 0);
+                throw new IllegalStateException("没有可用的图片解码器");
             }
             ImageReader reader = readers.next();
             reader.setInput(stream, false, false);
             int count = Math.min(reader.getNumImages(true), maxFrames);
+            if (count <= 0) {
+                throw new IllegalStateException("文件里没有帧");
+            }
             for (int i = 0; i < count; i++) {
                 BufferedImage frame = reader.read(i);
                 if (frame == null) {
@@ -102,8 +105,14 @@ public final class VideoTranscoder {
                 progress.update((i + 1) / (float) count, "解析 GIF " + (i + 1) + "/" + count);
             }
             reader.dispose();
+        } catch (IllegalStateException e) {
+            throw e;
         } catch (Throwable e) {
-            return new Frames(frames, 0, 0);
+            com.photoparticles.PhotoParticlesMod.LOGGER.error("gif decode failed: " + file, e);
+            throw new IllegalStateException("GIF 解码异常：" + e.getClass().getSimpleName(), e);
+        }
+        if (frames.isEmpty()) {
+            throw new IllegalStateException("GIF 里没有可用画面");
         }
         return new Frames(frames, width, height);
     }
