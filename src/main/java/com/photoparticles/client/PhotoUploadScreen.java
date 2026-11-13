@@ -24,7 +24,7 @@ public class PhotoUploadScreen extends Screen {
     private static final int ROW_HEIGHT = 12;
     private static final int MAX_ENTRIES = 200;
     private static final String[] IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".bmp", ".gif"};
-    private static final String[] VIDEO_EXTENSIONS = {".gif"};
+    private static final String[] VIDEO_EXTENSIONS = {".gif", ".mp4"};
 
     private final BlockPos pos;
     private final boolean video;
