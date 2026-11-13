@@ -48,4 +48,4 @@ Requires JDK 25 on Windows. The output is not remapped, so it can be dropped str
 
 ## License
 
-MIT, see [LICENSE](LICENSE).
+MIT, see [LICENSE](LICENSE). Version history is in [CHANGELOG.md](CHANGELOG.md).

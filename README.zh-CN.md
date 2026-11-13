@@ -42,4 +42,4 @@ Windows 下需要 JDK 25。产物不带 remap，直接丢进 Fabric 就能跑。
 
 ## 许可
 
-MIT，见 [LICENSE](LICENSE)。
+MIT，见 [LICENSE](LICENSE)。版本记录见 [CHANGELOG.md](CHANGELOG.md)。
