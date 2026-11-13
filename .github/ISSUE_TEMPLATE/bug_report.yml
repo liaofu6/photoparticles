@@ -1,0 +1,63 @@
+name: Bug report
+description: Report something that does not work as expected
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before submitting, please check that the issue is not already reported.
+        Attach the crash report or the relevant part of `latest.log` if the game crashed.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: Describe the problem and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Place a photo block
+        2. Right-click and pick an image
+        3. ...
+    validations:
+      required: true
+  - type: input
+    id: minecraft
+    attributes:
+      label: Minecraft version
+      placeholder: 26.2
+    validations:
+      required: true
+  - type: input
+    id: mod-version
+    attributes:
+      label: Mod version
+      placeholder: 0.1.0
+    validations:
+      required: true
+  - type: input
+    id: loader
+    attributes:
+      label: Fabric Loader and Fabric API versions
+      placeholder: Loader 0.19.5, Fabric API 0.161.0+26.2
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or crash report
+      description: Paste the crash report or drag the log file here.
+      render: text
+    validations:
+      required: false
+  - type: textarea
+    id: mods
+    attributes:
+      label: Other mods installed
+      description: Especially rendering mods such as Sodium or Iris.
+      render: text
+    validations:
+      required: false
