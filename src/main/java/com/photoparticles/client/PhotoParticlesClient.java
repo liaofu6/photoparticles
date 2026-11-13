@@ -26,6 +26,13 @@ public class PhotoParticlesClient implements ClientModInitializer {
         DECODER.execute(task);
     }
 
+    public static void notifyPlayer(String text) {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft.player != null) {
+            minecraft.player.sendOverlayMessage(Component.literal(text));
+        }
+    }
+
     @Override
     public void onInitializeClient() {
         BlockEntityRenderers.register(PhotoBlockEntities.PHOTO_BLOCK_ENTITY, context -> new PhotoBlockRenderer());

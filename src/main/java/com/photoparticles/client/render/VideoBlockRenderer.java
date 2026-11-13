@@ -63,13 +63,17 @@ public class VideoBlockRenderer implements BlockEntityRenderer<VideoBlockEntity,
             return;
         }
         VideoDataCache.Entry entry = VideoDataCache.get(state.pos);
-        if (entry == null || entry.version() != state.version) {
+        byte[] data = entry != null && entry.version() == state.version ? entry.data() : null;
+        if (data == null) {
             VideoDataCache.request(state.pos);
-            return;
         }
         VideoTexture video = CACHE.get(state.pos);
-        if (video == null || !video.source.equals(state.source) || video.data != entry.data()) {
-            requestLoad(state.pos, entry.data());
+        if (video == null || (data != null && video.data != data)) {
+            if (data != null) {
+                requestLoad(state.pos, data);
+            } else {
+                requestLocalLoad(state.pos, state.source);
+            }
             return;
         }
         if (video.frames.isEmpty()) {
@@ -126,32 +130,54 @@ public class VideoBlockRenderer implements BlockEntityRenderer<VideoBlockEntity,
         });
     }
 
+    /** 本机有这个 GIF 文件时直接读，省掉一次等待（上传者自己就能立刻看到）。 */
+    private static void requestLocalLoad(BlockPos pos, String path) {
+        if (path.isEmpty() || !LOADING.add(pos)) {
+            return;
+        }
+        File file = new File(path);
+        if (!file.isFile()) {
+            LOADING.remove(pos);
+            return;
+        }
+        com.photoparticles.client.PhotoParticlesClient.runAsync(() -> {
+            Frames frames = decode(path, new byte[0]);
+            applyLoaded(pos, null, frames);
+        });
+    }
+
     /** 解码放到后台线程，渲染线程只登记一次请求，本帧先不画。 */
     private static void requestLoad(BlockPos pos, byte[] data) {
         if (!LOADING.add(pos)) {
             return;
         }
         com.photoparticles.client.PhotoParticlesClient.runAsync(() -> {
-            String source = "";
-            Frames frames = decode(source, data);
-            Minecraft.getInstance().execute(() -> {
-                LOADING.remove(pos);
-                if (frames == null || frames.frames.isEmpty()) {
-                    CACHE.remove(pos);
-                    return;
-                }
-                Identifier id = Identifier.fromNamespaceAndPath("photoparticles",
-                        "dyn/video_" + pos.getX() + "_" + pos.getY() + "_" + pos.getZ());
-                NativeImage image = new NativeImage(frames.width, frames.height, true);
-                DynamicTexture texture = new DynamicTexture(() -> "photoparticles video", image);
-                VideoTexture old = CACHE.get(pos);
-                Minecraft.getInstance().getTextureManager().register(id, texture);
-                if (old != null) {
-                    old.texture.close();
-                }
-                CACHE.put(pos, new VideoTexture(source, data, id, image, texture,
-                        frames.frames, frames.width, frames.height));
-            });
+            Frames frames = decode("", data);
+            applyLoaded(pos, data, frames);
+        });
+    }
+
+    private static void applyLoaded(BlockPos pos, byte[] data, Frames frames) {
+        Minecraft.getInstance().execute(() -> {
+            LOADING.remove(pos);
+            if (frames == null || frames.frames.isEmpty()) {
+                CACHE.remove(pos);
+                com.photoparticles.client.PhotoParticlesClient.notifyPlayer("GIF 解码失败");
+                return;
+            }
+            Identifier id = Identifier.fromNamespaceAndPath("photoparticles",
+                    "dyn/video_" + pos.getX() + "_" + pos.getY() + "_" + pos.getZ());
+            NativeImage image = new NativeImage(frames.width, frames.height, true);
+            DynamicTexture texture = new DynamicTexture(() -> "photoparticles video", image);
+            VideoTexture old = CACHE.get(pos);
+            Minecraft.getInstance().getTextureManager().register(id, texture);
+            if (old != null) {
+                old.texture.close();
+            }
+            CACHE.put(pos, new VideoTexture("", data, id, image, texture,
+                    frames.frames, frames.width, frames.height));
+            com.photoparticles.client.PhotoParticlesClient.notifyPlayer(
+                    "视频解析完成：" + frames.frames.size() + " 帧");
         });
     }
 

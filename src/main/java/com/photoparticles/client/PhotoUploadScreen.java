@@ -396,6 +396,8 @@ public class PhotoUploadScreen extends Screen {
                 return;
             }
             ClientPlayNetworking.send(new VideoSourcePayload(this.pos, this.selectedFile.getAbsolutePath(), data));
+            PhotoParticlesClient.notifyPlayer(
+                    "已上传视频 " + String.format("%.2f", data.length / 1048576.0D) + " MB");
             this.onClose();
             return;
         }
