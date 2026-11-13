@@ -3,7 +3,9 @@ package com.photoparticles.client;
 import com.photoparticles.block.PhotoBlockEntities;
 import com.photoparticles.client.render.PhotoBlockRenderer;
 import com.photoparticles.client.render.VideoBlockRenderer;
+import com.photoparticles.network.VideoDataPayload;
 import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.blockentity.BlockEntityRenderers;
 import net.minecraft.core.BlockPos;
@@ -28,6 +30,10 @@ public class PhotoParticlesClient implements ClientModInitializer {
     public void onInitializeClient() {
         BlockEntityRenderers.register(PhotoBlockEntities.PHOTO_BLOCK_ENTITY, context -> new PhotoBlockRenderer());
         BlockEntityRenderers.register(PhotoBlockEntities.VIDEO_BLOCK_ENTITY, context -> new VideoBlockRenderer());
+
+        ClientPlayNetworking.registerGlobalReceiver(VideoDataPayload.TYPE, (payload, context) ->
+                context.client().execute(() ->
+                        VideoDataCache.put(payload.pos(), payload.version(), payload.data())));
     }
 
     public static void openUploadScreen(BlockPos pos) {

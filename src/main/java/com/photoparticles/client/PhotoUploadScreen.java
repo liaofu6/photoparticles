@@ -392,7 +392,7 @@ public class PhotoUploadScreen extends Screen {
                 return;
             }
             if (data.length > VideoSourcePayload.MAX_DATA) {
-                this.status = Component.literal("GIF 超过 1 MB，换个小一点的");
+                this.status = Component.literal("GIF 超过 " + (VideoSourcePayload.MAX_DATA / (1024 * 1024)) + " MB，换个小一点的");
                 return;
             }
             ClientPlayNetworking.send(new VideoSourcePayload(this.pos, this.selectedFile.getAbsolutePath(), data));

@@ -3,6 +3,7 @@ package com.photoparticles.client.render;
 import com.mojang.blaze3d.platform.NativeImage;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.photoparticles.block.VideoBlockEntity;
+import com.photoparticles.client.VideoDataCache;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.util.ArrayList;
@@ -49,7 +50,7 @@ public class VideoBlockRenderer implements BlockEntityRenderer<VideoBlockEntity,
         BlockEntityRenderState.extractBase(blockEntity, state, overlay);
         state.pos = blockEntity.getBlockPos();
         state.source = blockEntity.getSource();
-        state.data = blockEntity.getData();
+        state.version = blockEntity.getDataVersion();
         state.facing = blockEntity.getFacing();
     }
 
@@ -61,9 +62,14 @@ public class VideoBlockRenderer implements BlockEntityRenderer<VideoBlockEntity,
         if (!PhotoBlockRenderer.imageSupportAvailable()) {
             return;
         }
+        VideoDataCache.Entry entry = VideoDataCache.get(state.pos);
+        if (entry == null || entry.version() != state.version) {
+            VideoDataCache.request(state.pos);
+            return;
+        }
         VideoTexture video = CACHE.get(state.pos);
-        if (video == null || !video.source.equals(state.source) || video.data != state.data) {
-            requestLoad(state.pos, state.source, state.data);
+        if (video == null || !video.source.equals(state.source) || video.data != entry.data()) {
+            requestLoad(state.pos, entry.data());
             return;
         }
         if (video.frames.isEmpty()) {
@@ -121,11 +127,12 @@ public class VideoBlockRenderer implements BlockEntityRenderer<VideoBlockEntity,
     }
 
     /** 解码放到后台线程，渲染线程只登记一次请求，本帧先不画。 */
-    private static void requestLoad(BlockPos pos, String source, byte[] data) {
+    private static void requestLoad(BlockPos pos, byte[] data) {
         if (!LOADING.add(pos)) {
             return;
         }
         com.photoparticles.client.PhotoParticlesClient.runAsync(() -> {
+            String source = "";
             Frames frames = decode(source, data);
             Minecraft.getInstance().execute(() -> {
                 LOADING.remove(pos);
@@ -264,7 +271,7 @@ public class VideoBlockRenderer implements BlockEntityRenderer<VideoBlockEntity,
     public static class State extends BlockEntityRenderState {
         public BlockPos pos = BlockPos.ZERO;
         public String source = "";
-        public byte[] data = new byte[0];
+        public int version;
         public Direction facing = Direction.SOUTH;
     }
 }

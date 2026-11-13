@@ -8,8 +8,8 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.Identifier;
 
 public record VideoSourcePayload(BlockPos pos, String path, byte[] data) implements CustomPacketPayload {
-    /** GIF 体积上限，超过这个值会明显拖慢方块同步。 */
-    public static final int MAX_DATA = 1024 * 1024;
+    /** GIF 体积上限。数据只在需要时单独下发，所以可以放宽到 8 MB。 */
+    public static final int MAX_DATA = 8 * 1024 * 1024;
 
     public static final CustomPacketPayload.Type<VideoSourcePayload> TYPE =
             new CustomPacketPayload.Type<>(Identifier.fromNamespaceAndPath(PhotoParticlesMod.MOD_ID, "video_source"));

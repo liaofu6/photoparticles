@@ -10,6 +10,7 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 
 public final class PhotoNetwork {
     private static final int MAX_PAYLOAD_BYTES = 1 << 21;
+    private static final int MAX_VIDEO_BYTES = 12 << 20;
     private static final double MAX_DISTANCE_SQR = 64.0D;
 
     private PhotoNetwork() {
@@ -19,7 +20,11 @@ public final class PhotoNetwork {
         PayloadTypeRegistry.serverboundPlay()
                 .registerLarge(UploadPhotoPayload.TYPE, UploadPhotoPayload.CODEC, MAX_PAYLOAD_BYTES);
         PayloadTypeRegistry.serverboundPlay()
-                .register(VideoSourcePayload.TYPE, VideoSourcePayload.CODEC);
+                .registerLarge(VideoSourcePayload.TYPE, VideoSourcePayload.CODEC, MAX_VIDEO_BYTES);
+        PayloadTypeRegistry.serverboundPlay()
+                .register(VideoRequestPayload.TYPE, VideoRequestPayload.CODEC);
+        PayloadTypeRegistry.clientboundPlay()
+                .registerLarge(VideoDataPayload.TYPE, VideoDataPayload.CODEC, MAX_VIDEO_BYTES);
 
         ServerPlayNetworking.registerGlobalReceiver(UploadPhotoPayload.TYPE, (payload, context) -> {
             ServerPlayer player = context.player();
@@ -30,6 +35,25 @@ public final class PhotoNetwork {
             ServerPlayer player = context.player();
             context.server().execute(() -> handleVideoSource(player, payload));
         });
+
+        ServerPlayNetworking.registerGlobalReceiver(VideoRequestPayload.TYPE, (payload, context) -> {
+            ServerPlayer player = context.player();
+            context.server().execute(() -> handleVideoRequest(player, payload));
+        });
+    }
+
+    private static void handleVideoRequest(ServerPlayer player, VideoRequestPayload payload) {
+        if (player.distanceToSqr(
+                payload.pos().getX() + 0.5D,
+                payload.pos().getY() + 0.5D,
+                payload.pos().getZ() + 0.5D) > MAX_DISTANCE_SQR) {
+            return;
+        }
+        BlockEntity blockEntity = player.level().getBlockEntity(payload.pos());
+        if (blockEntity instanceof com.photoparticles.block.VideoBlockEntity video && video.hasData()) {
+            ServerPlayNetworking.send(player,
+                    new VideoDataPayload(payload.pos(), video.getDataVersion(), video.getData()));
+        }
     }
 
     private static void handleVideoSource(ServerPlayer player, VideoSourcePayload payload) {

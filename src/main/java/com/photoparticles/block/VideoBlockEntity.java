@@ -19,6 +19,7 @@ public class VideoBlockEntity extends BlockEntity {
 
     private String source = "";
     private byte[] data = EMPTY_DATA;
+    private int dataVersion;
     private int facing = Direction.SOUTH.get2DDataValue();
 
     public VideoBlockEntity(BlockPos pos, BlockState state) {
@@ -30,6 +31,7 @@ public class VideoBlockEntity extends BlockEntity {
         super.saveAdditional(output);
         output.putString("Source", source);
         output.putInt("Facing", facing);
+        output.putInt("DataVersion", dataVersion);
         output.putInt("DataLength", data.length);
         output.putIntArray("Data", pack(data));
     }
@@ -39,12 +41,22 @@ public class VideoBlockEntity extends BlockEntity {
         super.loadAdditional(input);
         source = input.getStringOr("Source", "");
         facing = input.getIntOr("Facing", Direction.SOUTH.get2DDataValue()) & 3;
+        dataVersion = input.getIntOr("DataVersion", 0);
         data = unpack(input.getIntArray("Data").orElse(EMPTY_INTS), input.getIntOr("DataLength", 0));
     }
 
+    /**
+     * 同步包只带元信息，GIF 本体由客户端按需单独请求，
+     * 避免几 MB 的数据跟着方块更新包反复发送。
+     */
     @Override
     public CompoundTag getUpdateTag(HolderLookup.Provider registries) {
-        return saveCustomOnly(registries);
+        CompoundTag tag = new CompoundTag();
+        tag.putString("Source", source);
+        tag.putInt("Facing", facing);
+        tag.putInt("DataVersion", dataVersion);
+        tag.putInt("DataLength", data.length);
+        return tag;
     }
 
     @Override
@@ -56,9 +68,16 @@ public class VideoBlockEntity extends BlockEntity {
         return source;
     }
 
-    /** GIF 原始字节，存在方块实体里，这样别的玩家也能播。 */
     public byte[] getData() {
         return data;
+    }
+
+    public int getDataVersion() {
+        return dataVersion;
+    }
+
+    public boolean hasData() {
+        return data.length > 0;
     }
 
     public Direction getFacing() {
@@ -71,6 +90,9 @@ public class VideoBlockEntity extends BlockEntity {
         }
         this.source = path.length() > MAX_PATH_LENGTH ? path.substring(0, MAX_PATH_LENGTH) : path;
         this.data = gifData == null ? EMPTY_DATA : gifData.clone();
+        this.dataVersion = level != null && level.getRandom() != null
+                ? level.getRandom().nextInt()
+                : (int) System.nanoTime();
         this.facing = direction.get2DDataValue();
         setChanged();
         if (level != null && !level.isClientSide()) {
