@@ -97,7 +97,9 @@ public final class VideoJobs {
                     job.finish("视频已上传 " + String.format("%.2f", blob.length / 1048576.0D) + " MB");
                 });
             } catch (Throwable e) {
-                job.finish("解析失败：" + e.getMessage());
+                String message = e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage();
+                com.photoparticles.PhotoParticlesMod.LOGGER.error("video job failed: " + file, e);
+                job.finish("解析失败：" + message);
             }
         });
     }

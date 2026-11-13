@@ -42,23 +42,25 @@ public final class VideoTranscoder {
      * 返回打包好的视频数据，体积过大时自动抽帧和降尺寸；完全无法解析时返回 null。
      */
     public static byte[] transcode(File file, Progress progress) throws Exception {
-        byte[] blob = build(file, MAX_SIDE, MAX_FRAMES, progress);
-        if (blob != null && blob.length <= MAX_BLOB_BYTES) {
-            return blob;
+        int[][] steps = {
+                {MAX_SIDE, MAX_FRAMES},
+                {160, 24},
+                {128, 16},
+                {96, 12}
+        };
+        for (int[] step : steps) {
+            byte[] blob = build(file, step[0], step[1], progress);
+            if (blob == null) {
+                throw new IllegalStateException("解析失败，可能不是标准 GIF/MP4 文件");
+            }
+            com.photoparticles.PhotoParticlesMod.LOGGER.info("video transcode: {} {}px {} frames -> {} bytes",
+                    file.getName(), step[0], step[1], blob.length);
+            if (blob.length <= MAX_BLOB_BYTES) {
+                return blob;
+            }
+            progress.update(0.0F, "体积过大，降低画质重试");
         }
-
-        // 超了就抽掉一半的帧再试
-        int frames = MAX_FRAMES;
-        while (blob != null && blob.length > MAX_BLOB_BYTES && frames > MIN_FRAMES) {
-            frames /= 2;
-            progress.update(0.0F, "体积过大，压缩到 " + frames + " 帧");
-            blob = build(file, MAX_SIDE, frames, progress);
-        }
-        if (blob != null && blob.length > MAX_BLOB_BYTES) {
-            progress.update(0.0F, "体积仍然过大，降低分辨率");
-            blob = build(file, MAX_SIDE * 2 / 3, MIN_FRAMES, progress);
-        }
-        return blob != null && blob.length <= MAX_BLOB_BYTES ? blob : null;
+        throw new IllegalStateException("视频太大，剪短一点再试");
     }
 
     private static byte[] build(File file, int maxSide, int maxFrames, Progress progress) throws Exception {
