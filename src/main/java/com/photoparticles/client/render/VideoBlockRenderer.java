@@ -182,6 +182,20 @@ public class VideoBlockRenderer implements BlockEntityRenderer<VideoBlockEntity,
     }
 
     private static Frames decode(String path, byte[] data) {
+        if (data.length > 0 && com.photoparticles.client.video.VideoBlob.isBlob(data)) {
+            try {
+                com.photoparticles.client.video.VideoBlob.Decoded decoded =
+                        com.photoparticles.client.video.VideoBlob.unpack(data);
+                if (decoded == null || decoded.frames().isEmpty()) {
+                    return null;
+                }
+                com.photoparticles.PhotoParticlesMod.LOGGER.info("video blob decoded: {}x{}, {} frames",
+                        decoded.width(), decoded.height(), decoded.frames().size());
+                return new Frames(decoded.frames(), decoded.width(), decoded.height());
+            } catch (Throwable e) {
+                return null;
+            }
+        }
         List<int[]> frames = new ArrayList<>();
         int width = 0;
         int height = 0;
