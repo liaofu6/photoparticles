@@ -10,6 +10,7 @@ import java.util.Arrays;
 import java.util.List;
 import javax.imageio.ImageIO;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
@@ -34,6 +35,9 @@ public class PhotoUploadScreen extends Screen {
     private int imageWidth;
     private int imageHeight;
     private int[] pixels;
+    private int previewWidth;
+    private int previewHeight;
+    private int[] previewPixels;
     private Component status = Component.literal("点击左侧文件选择图片");    private Button sendButton;
 
     private int listX;
@@ -146,15 +150,15 @@ public class PhotoUploadScreen extends Screen {
                 this.previewY + this.previewSize + 2, 0xFF4A4A4A);
         graphics.fill(this.previewX, this.previewY, this.previewX + this.previewSize,
                 this.previewY + this.previewSize, 0xFF141414);
-        if (this.pixels != null) {
-            int cell = Math.max(1, Math.min(this.previewSize / this.imageWidth, this.previewSize / this.imageHeight));
-            int drawWidth = cell * this.imageWidth;
-            int drawHeight = cell * this.imageHeight;
+        if (this.previewPixels != null) {
+            int cell = Math.max(1, Math.min(this.previewSize / this.previewWidth, this.previewSize / this.previewHeight));
+            int drawWidth = cell * this.previewWidth;
+            int drawHeight = cell * this.previewHeight;
             int originX = this.previewX + (this.previewSize - drawWidth) / 2;
             int originY = this.previewY + (this.previewSize - drawHeight) / 2;
-            for (int y = 0; y < this.imageHeight; y++) {
-                for (int x = 0; x < this.imageWidth; x++) {
-                    int color = this.pixels[y * this.imageWidth + x];
+            for (int y = 0; y < this.previewHeight; y++) {
+                for (int x = 0; x < this.previewWidth; x++) {
+                    int color = this.previewPixels[y * this.previewWidth + x];
                     if ((color >>> 24) == 0) {
                         continue;
                     }
@@ -275,37 +279,79 @@ public class PhotoUploadScreen extends Screen {
             this.status = Component.literal("当前运行环境缺少图片解码能力，只能显示方块模型");
             return;
         }
-        BufferedImage source;
+        this.status = Component.literal("解析中…");
+        this.pixels = null;
+        this.previewPixels = null;
+        PhotoParticlesClient.runAsync(() -> this.decode(file));
+    }
+
+    /** 在后台线程读图并缩放，结果回到主线程更新界面。 */
+    private void decode(File file) {
+        int newWidth;
+        int newHeight;
+        int[] result;
         try {
-            source = ImageIO.read(file);
+            BufferedImage source = ImageIO.read(file);
+            if (source == null) {
+                Minecraft.getInstance().execute(() -> this.status = Component.literal("不支持的图片格式"));
+                return;
+            }
+            int srcWidth = source.getWidth();
+            int srcHeight = source.getHeight();
+            double scale = Math.min(1.0D, (double) MAX_SIDE / Math.max(srcWidth, srcHeight));
+            newWidth = Math.max(1, (int) Math.round(srcWidth * scale));
+            newHeight = Math.max(1, (int) Math.round(srcHeight * scale));
+            result = new int[newWidth * newHeight];
+            int[] row = new int[srcWidth];
+            for (int y = 0; y < newHeight; y++) {
+                int y0 = (int) ((long) y * srcHeight / newHeight);
+                int y1 = Math.max(y0 + 1, (int) ((long) (y + 1) * srcHeight / newHeight));
+                for (int x = 0; x < newWidth; x++) {
+                    int x0 = (int) ((long) x * srcWidth / newWidth);
+                    int x1 = Math.max(x0 + 1, (int) ((long) (x + 1) * srcWidth / newWidth));
+                    result[y * newWidth + x] = average(source, x0, y0, x1, y1, row);
+                }
+            }
         } catch (Throwable e) {
-            this.status = Component.literal("图片读取失败");
+            Minecraft.getInstance().execute(() -> this.status = Component.literal("图片读取失败"));
             return;
         }
-        if (source == null) {
-            this.status = Component.literal("不支持的图片格式");
+        int width = newWidth;
+        int height = newHeight;
+        int[] decoded = result;
+        Minecraft.getInstance().execute(() -> {
+            if (!file.equals(this.selectedFile)) {
+                return;
+            }
+            this.imageWidth = width;
+            this.imageHeight = height;
+            this.pixels = decoded;
+            this.buildPreview();
+            this.status = Component.literal("已解析 " + width + " x " + height + " 像素");
+        });
+    }
+
+    /** 预览只画缩小后的副本，避免每帧绘制几万个方块。 */
+    private void buildPreview() {
+        if (this.pixels == null || this.imageWidth <= 0 || this.imageHeight <= 0) {
+            this.previewPixels = null;
             return;
         }
-        int srcWidth = source.getWidth();
-        int srcHeight = source.getHeight();
-        double scale = Math.min(1.0D, (double) MAX_SIDE / Math.max(srcWidth, srcHeight));
-        int newWidth = Math.max(1, (int) Math.round(srcWidth * scale));
-        int newHeight = Math.max(1, (int) Math.round(srcHeight * scale));
-        int[] result = new int[newWidth * newHeight];
-        int[] row = new int[srcWidth];
-        for (int y = 0; y < newHeight; y++) {
-            int y0 = (int) ((long) y * srcHeight / newHeight);
-            int y1 = Math.max(y0 + 1, (int) ((long) (y + 1) * srcHeight / newHeight));
-            for (int x = 0; x < newWidth; x++) {
-                int x0 = (int) ((long) x * srcWidth / newWidth);
-                int x1 = Math.max(x0 + 1, (int) ((long) (x + 1) * srcWidth / newWidth));
-                result[y * newWidth + x] = average(source, x0, y0, x1, y1, row);
+        int cap = 128;
+        double scale = Math.min(1.0D, (double) cap / Math.max(this.imageWidth, this.imageHeight));
+        int width = Math.max(1, (int) Math.round(this.imageWidth * scale));
+        int height = Math.max(1, (int) Math.round(this.imageHeight * scale));
+        int[] out = new int[width * height];
+        for (int y = 0; y < height; y++) {
+            int sourceY = Math.min(this.imageHeight - 1, y * this.imageHeight / height);
+            for (int x = 0; x < width; x++) {
+                int sourceX = Math.min(this.imageWidth - 1, x * this.imageWidth / width);
+                out[y * width + x] = this.pixels[sourceY * this.imageWidth + sourceX];
             }
         }
-        this.imageWidth = newWidth;
-        this.imageHeight = newHeight;
-        this.pixels = result;
-        this.status = Component.literal("已解析 " + newWidth + " x " + newHeight + " 像素");
+        this.previewWidth = width;
+        this.previewHeight = height;
+        this.previewPixels = out;
     }
 
     /** 缩小图片时取区域平均，比直接抽样更干净，放大后不容易出现噪点。 */

@@ -36,6 +36,7 @@ public class VideoBlockRenderer implements BlockEntityRenderer<VideoBlockEntity,
     private static final int MAX_FRAMES = 60;
     private static final int TICKS_PER_FRAME = 2;
     private static final Map<BlockPos, VideoTexture> CACHE = new HashMap<>();
+    private static final java.util.Set<BlockPos> LOADING = new java.util.HashSet<>();
 
     @Override
     public State createRenderState() {
@@ -62,11 +63,8 @@ public class VideoBlockRenderer implements BlockEntityRenderer<VideoBlockEntity,
         }
         VideoTexture video = CACHE.get(state.pos);
         if (video == null || !video.source.equals(state.source) || video.data != state.data) {
-            video = load(state.pos, state.source, state.data);
-            if (video == null) {
-                return;
-            }
-            CACHE.put(state.pos, video);
+            requestLoad(state.pos, state.source, state.data);
+            return;
         }
         if (video.frames.isEmpty()) {
             return;
@@ -122,13 +120,40 @@ public class VideoBlockRenderer implements BlockEntityRenderer<VideoBlockEntity,
         });
     }
 
-    private static VideoTexture load(BlockPos pos, String path, byte[] data) {
+    /** 解码放到后台线程，渲染线程只登记一次请求，本帧先不画。 */
+    private static void requestLoad(BlockPos pos, String source, byte[] data) {
+        if (!LOADING.add(pos)) {
+            return;
+        }
+        com.photoparticles.client.PhotoParticlesClient.runAsync(() -> {
+            Frames frames = decode(source, data);
+            Minecraft.getInstance().execute(() -> {
+                LOADING.remove(pos);
+                if (frames == null || frames.frames.isEmpty()) {
+                    CACHE.remove(pos);
+                    return;
+                }
+                Identifier id = Identifier.fromNamespaceAndPath("photoparticles",
+                        "dyn/video_" + pos.getX() + "_" + pos.getY() + "_" + pos.getZ());
+                NativeImage image = new NativeImage(frames.width, frames.height, true);
+                DynamicTexture texture = new DynamicTexture(() -> "photoparticles video", image);
+                VideoTexture old = CACHE.get(pos);
+                Minecraft.getInstance().getTextureManager().register(id, texture);
+                if (old != null) {
+                    old.texture.close();
+                }
+                CACHE.put(pos, new VideoTexture(source, data, id, image, texture,
+                        frames.frames, frames.width, frames.height));
+            });
+        });
+    }
+
+    private static Frames decode(String path, byte[] data) {
         List<int[]> frames = new ArrayList<>();
         int width = 0;
         int height = 0;
-        ImageInputStream input = null;
         try {
-            input = data.length > 0
+            ImageInputStream input = data.length > 0
                     ? ImageIO.createImageInputStream(new java.io.ByteArrayInputStream(data))
                     : ImageIO.createImageInputStream(new File(path));
             if (input == null) {
@@ -142,6 +167,7 @@ public class VideoBlockRenderer implements BlockEntityRenderer<VideoBlockEntity,
                 ImageReader reader = readers.next();
                 reader.setInput(stream, false, false);
                 int count = Math.min(reader.getNumImages(true), MAX_FRAMES);
+                long budget = 12_000_000L;
                 for (int i = 0; i < count; i++) {
                     BufferedImage frame = reader.read(i);
                     if (frame == null) {
@@ -151,6 +177,9 @@ public class VideoBlockRenderer implements BlockEntityRenderer<VideoBlockEntity,
                         double scale = Math.min(1.0D, (double) MAX_SIDE / Math.max(frame.getWidth(), frame.getHeight()));
                         width = Math.max(1, (int) Math.round(frame.getWidth() * scale));
                         height = Math.max(1, (int) Math.round(frame.getHeight() * scale));
+                    }
+                    if ((long) width * height * (frames.size() + 1L) > budget) {
+                        break;
                     }
                     frames.add(resize(frame, width, height));
                 }
@@ -162,12 +191,10 @@ public class VideoBlockRenderer implements BlockEntityRenderer<VideoBlockEntity,
         if (frames.isEmpty()) {
             return null;
         }
-        Identifier id = Identifier.fromNamespaceAndPath("photoparticles",
-                "dyn/video_" + pos.getX() + "_" + pos.getY() + "_" + pos.getZ());
-        NativeImage image = new NativeImage(width, height, true);
-        DynamicTexture texture = new DynamicTexture(() -> "photoparticles video", image);
-        Minecraft.getInstance().getTextureManager().register(id, texture);
-        return new VideoTexture(path, data, id, image, texture, frames, width, height);
+        return new Frames(frames, width, height);
+    }
+
+    private record Frames(List<int[]> frames, int width, int height) {
     }
 
     private static int[] resize(BufferedImage source, int width, int height) {

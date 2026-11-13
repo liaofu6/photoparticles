@@ -9,7 +9,21 @@ import net.minecraft.client.renderer.blockentity.BlockEntityRenderers;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
 public class PhotoParticlesClient implements ClientModInitializer {
+    /** 图片解码放到后台线程，避免阻塞渲染线程造成卡顿。 */
+    private static final ExecutorService DECODER = Executors.newFixedThreadPool(2, runnable -> {
+        Thread thread = new Thread(runnable, "photoparticles-decoder");
+        thread.setDaemon(true);
+        return thread;
+    });
+
+    public static void runAsync(Runnable task) {
+        DECODER.execute(task);
+    }
+
     @Override
     public void onInitializeClient() {
         BlockEntityRenderers.register(PhotoBlockEntities.PHOTO_BLOCK_ENTITY, context -> new PhotoBlockRenderer());
